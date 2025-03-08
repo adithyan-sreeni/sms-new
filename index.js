@@ -24,6 +24,56 @@ const db = admin.firestore();
 const twilioClient = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
 const twilioNumber = process.env.TWILIO_PHONE_NUMBER;
 
+// Handle incoming job details
+app.post("/addJob", async (req, res) => {
+    try {
+        const { jobName, description, address, phone, wage, workType, pincode } = req.body;
+
+        if (!jobName || !description || !address || !phone || !wage || !workType || !pincode) {
+            return res.status(400).send("Missing required fields.");
+        }
+
+        // Save the job details to Firestore
+        await db.collection("jobs").add({
+            jobName,
+            description,
+            address,
+            phone,
+            wage,
+            workType,
+            pincode,
+            createdAt: admin.firestore.FieldValue.serverTimestamp() // Save the timestamp
+        });
+        console.log("Job details saved:", jobName, pincode);
+
+        // Fetch smsLogs with matching pincode
+        const smsLogsSnapshot = await db.collection("smsLogs").where("body", "==", pincode).get();
+        let replyMessage = `Job Name: ${jobName}\nDescription: ${description}\nAddress: ${address}\nPhone: ${phone}\nWage: ${wage}\nWork Type: ${workType}`;
+
+        if (!smsLogsSnapshot.empty) {
+            const smsLogs = smsLogsSnapshot.docs.map(doc => doc.data());
+            for (const log of smsLogs) {
+                const toNumber = log.from;
+
+                // Send SMS to each matching number
+                await twilioClient.messages.create({
+                    body: replyMessage,
+                    from: twilioNumber,
+                    to: toNumber
+                });
+                console.log("SMS sent to:", toNumber);
+            }
+        } else {
+            console.log("No matching pincode found in smsLogs.");
+        }
+
+        res.status(200).send("Job details added and SMS sent.");
+    } catch (error) {
+        console.error("Error adding job details:", error);
+        res.status(500).send("Internal Server Error");
+    }
+});
+
 // Handle incoming SMS
 app.post("/sms", async (req, res) => {
     try {
