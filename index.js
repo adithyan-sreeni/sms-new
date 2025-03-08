@@ -42,20 +42,31 @@ app.post("/sms", async (req, res) => {
         });
         console.log("SMS received:", fromNumber, pincode);
 
-        const doc = await db.collection("pincodes").doc(pincode).get();
+        const querySnapshot = await db.collection("jobs").where("pincode", "==", pincode).get();
         let replyMessage = "Sorry, no information available for this pincode.";
-        
-        if (doc.exists) {
-            replyMessage = doc.data().message;
-        }
 
-        // Send reply SMS
-        await twilioClient.messages.create({
-            body: replyMessage,
-            from: twilioNumber,
-            to: fromNumber
-        });
-        console.log("SMS sent:", replyMessage);
+        if (!querySnapshot.empty) {
+            const jobData = querySnapshot.docs.map(doc => doc.data());
+            for (const job of jobData) {
+                replyMessage = `Job Name: ${job.jobName}\nDescription: ${job.description}\nAddress: ${job.address}\nPhone: ${job.phone}\nWage: ${job.wage}\nWork Type: ${job.workType}`;
+
+                // Send reply SMS
+                await twilioClient.messages.create({
+                    body: replyMessage,
+                    from: twilioNumber,
+                    to: fromNumber
+                });
+                console.log("SMS sent:", replyMessage);
+            }
+        } else {
+            // Send default reply SMS if no matching documents are found
+            await twilioClient.messages.create({
+                body: replyMessage,
+                from: twilioNumber,
+                to: fromNumber
+            });
+            console.log("SMS sent:", replyMessage);
+        }
 
         res.status(200).send("Message processed.");
     } catch (error) {
