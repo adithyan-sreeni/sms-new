@@ -40,6 +40,7 @@ app.post("/sms", async (req, res) => {
             body: pincode,
             receivedAt: admin.firestore.FieldValue.serverTimestamp() // Save the timestamp
         });
+        console.log("SMS received:", fromNumber, pincode);
 
         const doc = await db.collection("pincodes").doc(pincode).get();
         let replyMessage = "Sorry, no information available for this pincode.";
@@ -54,6 +55,7 @@ app.post("/sms", async (req, res) => {
             from: twilioNumber,
             to: fromNumber
         });
+        console.log("SMS sent:", replyMessage);
 
         res.status(200).send("Message processed.");
     } catch (error) {
