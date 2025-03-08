@@ -34,6 +34,13 @@ app.post("/sms", async (req, res) => {
             return res.status(400).send("Missing required fields.");
         }
 
+        // Save the incoming SMS to Firestore
+        await db.collection("smsLogs").add({
+            from: fromNumber,
+            body: pincode,
+            receivedAt: admin.firestore.FieldValue.serverTimestamp() // Save the timestamp
+        });
+
         const doc = await db.collection("pincodes").doc(pincode).get();
         let replyMessage = "Sorry, no information available for this pincode.";
         
